@@ -1,0 +1,231 @@
+# rna-velocity — analysis repository configuration
+#
+# This repository is a collection of analysis scripts (code/) run across several
+# environments (environments/), not an importable Python package. There is
+# therefore no [build-system] or [project] table: PEP 735 dependency groups and
+# [tool.pixi] are both valid without one, and pixi builds every environment
+# below from them.
+#
+# If you later factor shared helpers into an importable package, re-add:
+#   [build-system]
+#   requires = ["hatch-vcs", "hatchling"]
+#   build-backend = "hatchling.build"
+#   [project]
+#   name = "rna-velocity"           # PEP 503 normalized form
+#   authors = [{ name = "...", email = "..." }]
+#   license = "BSD-3-Clause"
+#   license-files = ["LICENSE"]
+#   dynamic = ["version"]
+#   [tool.hatch.build.targets.wheel]
+#   packages = ["src/rna-velocity"]  # must exist
+# ...and create src/rna-velocity/__init__.py plus a LICENSE file.
+
+# uv and pip both read `requires-python` from [project]. Without that table uv
+# defaults to the interpreter it happens to find (">=3.14" on a 3.14 machine) and
+# then tries to solve for every platform, which is how a win32 split appears in
+# an error message for a Linux/macOS-only project. A metadata-only [project]
+# table fixes that without claiming this repo is an importable package.
+[project]
+name = "rna-velocity"
+version = "0.0.0"              # static: no [build-system], nothing is built
+description = "Spatial single-cell analysis — neural crest developing"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [ ]             # runtime deps live in [dependency-groups] below
+
+# Restrict resolution to the platforms this project actually targets. Without
+# this, uv solves for win32 too and fails on packages that have no Windows wheel.
+[tool.uv]
+environments = [
+  "sys_platform == 'linux'",
+  "sys_platform == 'darwin'",
+]
+default-groups = [ "analysis" ]
+
+# ---------------------------------------------------------------- dependencies
+
+[dependency-groups]
+
+# Core analysis stack. Floors reflect versions this project is actually run
+# against, not inherited lower bounds.
+analysis = [
+  "anndata>=0.10",
+  "dask[array,distributed]>=2024.1",  # distributed forks for GIL-bound work
+  "fsspec>=2023.1",
+  "leidenalg>=0.11",
+  "matplotlib>=3.8",
+  "matplotlib-scalebar>=0.8",
+  "networkx>=3.2",
+  "numba>=0.63",                      # 0.63 is the first release supporting 3.14
+  "numpy>=1.26",
+  "pandas<3",
+  "pooch>=1.8",
+  "pyyaml>=6",                        # import is `yaml`; the distribution is `pyyaml`
+  "scanpy>=1.10",
+  "scikit-image>=0.25",
+  "scikit-learn>=1.4",
+  "scipy>=1.12",
+  "spatialdata>=0.2",
+  "squidpy>=1.6",                     # squidpy.gr / squidpy.pl are used directly
+  "statsmodels>=0.14",
+  "tifffile>=2023.1",                 # floor covers the 2022.4.22 rescale bug
+  "xarray>=2024.10",
+  "zarr>=3",
+  "scFates",
+  "scvelo",
+  "rpy2",
+]
+
+# Interactive viewers. Pulls the napari/Qt GUI stack — keep out of the core
+# group so headless CI and cluster jobs stay installable.
+viz = [
+  "napari-spatialdata>=0.5",
+]
+
+# CellProfiler-derived image featurization. Only needed for image feature
+# extraction, so it is not part of the core group.
+image = [
+  "centrosome>=1.2.3",
+  "cp-measure>=0.2,<0.3",
+  "dask-image>=0.5",
+  "imagecodecs>=2025.8.2,<2026",
+]
+
+test = [
+  { include-group = "analysis" },
+  "coverage>=7",
+  "matplotlib<3.11",  # capped for stable image-comparison baselines
+  "pytest>=8",
+  "pytest-cov>=5",
+  "pytest-mock>=3.12",
+  "pytest-xdist>=3.5",
+]
+
+docs = [
+  { include-group = "analysis" },
+  "ipykernel",
+  "ipython",
+  "myst-nb>=1.1",
+  "sphinx>=8",
+  "sphinx-autodoc-typehints",
+  "sphinx-book-theme>=1.1",
+  "sphinxcontrib-bibtex>=2.6",
+]
+
+dev = [
+  { include-group = "test" },
+  { include-group = "viz" },
+  "nbconvert[webpdf]>=7.17.1",
+  "pre-commit>=3.7",
+  "ruff>=0.6",
+]
+
+# ----------------------------------------------------------------------- pytest
+
+# NOTE: the table must be [tool.pytest.ini_options]. Under a bare [tool.pytest]
+# every key here is silently discarded.
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+python_files = "test_*.py"
+# --strict-markers/--strict-config are the real options; there is no ini key
+# named `strict`.
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "--import-mode=importlib",
+]
+markers = [
+  "internet: requires network access",
+  "gpu: requires a GPU",
+]
+# Later entries win, so the escalations must come after the broad ignores.
+filterwarnings = [
+  "ignore::DeprecationWarning",
+  "ignore::UserWarning",
+  "error::numba.NumbaPerformanceWarning",
+]
+
+# ------------------------------------------------------------------------- ruff
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+exclude = [ ".git", "__pycache__", "build", "dist", "docs/_build" ]
+
+[tool.ruff.lint]
+# Every prefix appearing in `ignore` or `per-file-ignores` below must be
+# selected here, or those entries are silently inert.
+select = [
+  "B",    # flake8-bugbear
+  "BLE",  # flake8-blind-except
+  "C4",   # flake8-comprehensions
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "I",    # isort
+  "TID",  # flake8-tidy-imports — required for ban-relative-imports to fire
+  "UP",   # pyupgrade
+  "W",    # pycodestyle warnings
+]
+ignore = [
+  "B008",  # function call in argument defaults
+  "E501",  # line length handled by the formatter
+]
+# `D` (pydocstyle) is deliberately not selected: enabling it surfaces a large
+# missing-docstring backlog across code/. Add "D" to `select` above — together
+# with the D-code ignores you want — if you decide to take that on.
+unfixable = [ "F401" ]  # never let ruff delete re-exports
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.isort]
+required-imports = [ "from __future__ import annotations" ]
+
+[tool.ruff.lint.per-file-ignores]
+"code/**" = [ "E402" ]      # notebook-style scripts configure paths before imports
+"tests/*" = [ "B", "BLE" ]
+
+# --------------------------------------------------------------------- coverage
+
+[tool.coverage.run]
+source = [ "code" ]
+omit = [ "*/tests/*", "*/docs/*" ]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+
+# ------------------------------------------------------------------------- pixi
+
+[tool.pixi.workspace]
+channels = [ "conda-forge", "bioconda" ]
+platforms = [ "linux-64", "osx-arm64", "osx-64" ]
+
+[tool.pixi.dependencies]
+python = ">=3.12"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.tasks]
+test = "pytest -v"
+lint = "ruff check ."
+fmt = "ruff format ."
+kernel-install = 'python -m ipykernel install --user --name rna-velocity --display-name "neural crest (murine)"'
+
+# Both interpreters are covered in every matrix, including test — the original
+# omitted test-py312, so 3.12 was never actually tested.
+[tool.pixi.environments]
+default = { features = [ "py314" ], solve-group = "py314" }
+dev-py312 = { features = [ "dev", "py312" ], solve-group = "py312" }
+dev-py314 = { features = [ "dev", "py314" ], solve-group = "py314" }
+test-py312 = { features = [ "test", "py312" ], solve-group = "py312" }
+test-py314 = { features = [ "test", "py314" ], solve-group = "py314" }
+docs-py312 = { features = [ "docs", "py312" ], solve-group = "py312" }
+docs-py314 = { features = [ "docs", "py314" ], solve-group = "py314" }
