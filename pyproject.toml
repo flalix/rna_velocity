@@ -36,6 +36,7 @@ dependencies = [ ]             # runtime deps live in [dependency-groups] below
 # Restrict resolution to the platforms this project actually targets. Without
 # this, uv solves for win32 too and fails on packages that have no Windows wheel.
 [tool.uv]
+conflicts = [[{ group = "analysis" }, { group = "velocity" }]]
 environments = [
   "sys_platform == 'linux'",
   "sys_platform == 'darwin'",
@@ -49,6 +50,8 @@ default-groups = [ "analysis" ]
 # Core analysis stack. Floors reflect versions this project is actually run
 # against, not inherited lower bounds.
 analysis = [
+  "numpy>=2",        # <- was ">=1.26"; see note below
+  "scikit-misc>=0.5",  # scanpy's flavor="seurat_v3" HVG needs it
   "anndata>=0.10",
   "dask[array,distributed]>=2024.1",  # distributed forks for GIL-bound work
   "fsspec>=2023.1",
@@ -57,7 +60,6 @@ analysis = [
   "matplotlib-scalebar>=0.8",
   "networkx>=3.2",
   "numba>=0.63",                      # 0.63 is the first release supporting 3.14
-  "numpy>=1.26",
   "pandas<3",
   "pooch>=1.8",
   "pyyaml>=6",                        # import is `yaml`; the distribution is `pyyaml`
@@ -72,8 +74,19 @@ analysis = [
   "xarray>=2024.10",
   "zarr>=3",
   "scFates",
-  "scvelo",
   "rpy2",
+]
+
+velocity = [
+  "numpy<2",           # scvelo 0.3.4 breaks under numpy 2
+  "pandas<2.3",
+  "scanpy>=1.10",
+  "scvelo>=0.3.4",
+  "scikit-misc>=0.5",
+  "leidenalg>=0.11",
+  "igraph",
+  "harmonypy",
+  "kb-python>=0.30",
 ]
 
 # Interactive viewers. Pulls the napari/Qt GUI stack — keep out of the core

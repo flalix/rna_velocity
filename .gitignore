@@ -19,6 +19,8 @@ eggs/
 /backup01
 /backup02
 
+kb_sub/
+
 claude_results/
 
 lib/
