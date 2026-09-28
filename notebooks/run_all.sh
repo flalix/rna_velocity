@@ -11,7 +11,8 @@ SRC=$(cd "$(dirname "$0")" && pwd)
 KBREF=${KBREF:-kbref}
 FQDIR=${FQDIR:-fastq}
 VELO_PY=${VELO_PY:-python}
-export KBREF FQDIR
+COUNT_ROOT=${COUNT_ROOT:-.}   # kb count writes count_<library>/ here; load_qc.py reads from here
+export KBREF FQDIR COUNT_ROOT
 
 echo "== 1/6 kb count (three libraries, ~11 min each at 8 threads) =="
 bash "$SRC/count_libs.sh" tumor_primary:SRR11492025 lymph_node:SRR11492017 blood_PBMC:SRR11492013

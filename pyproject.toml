@@ -31,7 +31,9 @@ version = "0.0.0"              # static: no [build-system], nothing is built
 description = "Spatial single-cell analysis — neural crest developing"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [ ]             # runtime deps live in [dependency-groups] below
+dependencies = [
+ "dotenv>=0.9.9",
+]             # runtime deps live in [dependency-groups] below
 
 # Restrict resolution to the platforms this project actually targets. Without
 # this, uv solves for win32 too and fails on packages that have no Windows wheel.
